@@ -9,7 +9,9 @@ import { useWizardStore } from "@/lib/store";
 import { getPresetById } from "@/lib/caption-presets";
 import { exportVideoToWebm, downloadBlob } from "@/lib/export";
 import { useVoicePlaybackUrl } from "@/hooks/useVoicePlaybackUrl";
+import { useBackgroundPlaybackUrl } from "@/hooks/useBackgroundPlaybackUrl";
 import { usePreviewDurationSec } from "@/hooks/usePreviewDurationSec";
+import { OptionalBackgroundAudio } from "@/components/wizard/OptionalBackgroundAudio";
 import { Download, Loader2, RotateCcw } from "lucide-react";
 
 export function StepPreview() {
@@ -21,12 +23,17 @@ export function StepPreview() {
   const voice = useWizardStore((s) => s.voice);
   const clips = useWizardStore((s) => s.clips);
   const captions = useWizardStore((s) => s.captions);
+  const backgroundAudio = useWizardStore((s) => s.backgroundAudio);
   const resetWizard = useWizardStore((s) => s.resetWizard);
 
   const preset = getPresetById(captions.presetId);
   const total = usePreviewDurationSec(voice, clips);
   const voicePlaybackUrl = useVoicePlaybackUrl(voice);
+  const backgroundPlaybackUrl = useBackgroundPlaybackUrl(backgroundAudio);
   const hasVoiceAudio = Boolean(voice.url || voice.blob);
+  const bedEnabled =
+    backgroundAudio.enabled &&
+    Boolean(backgroundAudio.url || backgroundAudio.blob);
 
   const handleExport = async () => {
     setError(null);
@@ -37,6 +44,15 @@ export function StepPreview() {
         clips,
         voiceBlob: voice.blob,
         voiceUrl: voice.url,
+        audioBed:
+          bedEnabled && (backgroundAudio.blob || backgroundAudio.url)
+            ? {
+                blob: backgroundAudio.blob,
+                url: backgroundAudio.url,
+                enabled: true,
+                volumeLinear: backgroundAudio.volume,
+              }
+            : undefined,
         totalDurationSec: total,
         captions,
         sourceText: content.text,
@@ -114,6 +130,19 @@ export function StepPreview() {
                 </div>
               </div>
               <div>
+                <dt className="font-medium text-slate-700">Background</dt>
+                <dd className="mt-0.5 text-slate-600">
+                  {bedEnabled ? (
+                    <>
+                      {backgroundAudio.fileName ?? "Track"} · on ·{" "}
+                      {Math.round(backgroundAudio.volume * 100)}% mix
+                    </>
+                  ) : (
+                    <span className="text-slate-500">Off (optional)</span>
+                  )}
+                </dd>
+              </div>
+              <div>
                 <dt className="font-medium text-slate-700">Captions</dt>
                 <dd className="mt-0.5 text-slate-600">
                   {preset?.name ?? captions.presetId} · {captions.fontSize}px ·{" "}
@@ -123,13 +152,22 @@ export function StepPreview() {
             </dl>
           </Card>
 
+          <OptionalBackgroundAudio />
+
           <Card>
             <CardTitle>Export</CardTitle>
             <CardDescription>
-              Browser-based export to <strong>WebM</strong> (codec support
-              varies by browser). This MVP stitches visuals on a canvas and
-              mixes your voice when possible.
+              Download a ready-to-share vertical video in one tap. Export runs in
+              your browser — quick and free, ideal for drafts and sharing with
+              family and friends.
             </CardDescription>
+            <p className="mt-2 text-xs leading-relaxed text-slate-500">
+              Saves as a standard Web video file (
+              <span className="font-medium text-slate-600">WebM</span>). Most phones
+              and browsers play it smoothly; if something won&apos;t open, try a
+              different browser or convert later — higher-quality formats may come in
+              a future update.
+            </p>
             {error ? (
               <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
                 {error}
@@ -192,9 +230,14 @@ export function StepPreview() {
               clips={clips}
               voiceUrl={voicePlaybackUrl}
               totalDurationSec={total}
-              voice={voice}
               captions={captions}
               sourceText={content.text}
+              backgroundPlaybackUrl={
+                bedEnabled ? backgroundPlaybackUrl : undefined
+              }
+              backgroundEnabled={bedEnabled}
+              backgroundVolume={backgroundAudio.volume}
+              hasVoiceAudio={hasVoiceAudio}
             />
           </div>
           {hasVoiceAudio ? (

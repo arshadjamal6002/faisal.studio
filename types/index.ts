@@ -70,3 +70,14 @@ export type WizardCaptions = {
   displayMode: CaptionDisplayMode;
   chunks: CaptionChunk[];
 };
+
+/** Optional instrumental / ambient bed under narration (preview + export). */
+export type WizardBackgroundAudio = {
+  /** Master on/off — file can stay selected while off */
+  enabled: boolean;
+  blob?: Blob;
+  url?: string;
+  fileName?: string;
+  /** Linear gain 0–1 (UI slider); keep low by default so voice stays primary */
+  volume: number;
+};

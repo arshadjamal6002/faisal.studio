@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ClipItem, WizardCaptions, WizardVoice } from "@/types";
+import type { ClipItem, WizardCaptions } from "@/types";
 import {
   captionContainerJustify,
   captionInlineStyle,
@@ -12,37 +12,77 @@ import { getPresetById } from "@/lib/caption-presets";
 import { Button } from "@/components/ui/Button";
 import { Pause, Play } from "lucide-react";
 
+const PREVIEW_BG_FADE_IN_MS = 380;
+const PREVIEW_BG_FADE_OUT_MS = 320;
+
+/** Keep HTMLAudio bed under narration; slider is scaled down further when voice exists */
+function previewBedPeak(volumeLinear: number, hasVoice: boolean): number {
+  const v = Math.min(1, Math.max(0, volumeLinear));
+  const scale = hasVoice ? 0.36 : 0.52;
+  return Math.min(0.44, v * scale);
+}
+
 type Props = {
   clips: ClipItem[];
   voiceUrl?: string;
   /** Shared with export — must match `usePreviewDurationSec(voice, clips)` from parent. */
   totalDurationSec: number;
-  /** Full voice state for narration-based timeline (reading end, etc.) */
-  voice: WizardVoice;
   captions: WizardCaptions;
   sourceText: string;
+  /** Mixed preview: optional looping bed under voice */
+  backgroundPlaybackUrl?: string;
+  backgroundEnabled?: boolean;
+  backgroundVolume?: number;
+  hasVoiceAudio?: boolean;
 };
 
 export function VideoPreview({
   clips,
   voiceUrl,
   totalDurationSec,
-  voice,
   captions,
   sourceText,
+  backgroundPlaybackUrl,
+  backgroundEnabled = false,
+  backgroundVolume = 0.18,
+  hasVoiceAudio = false,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const bgAudioRef = useRef<HTMLAudioElement>(null);
   const rafRef = useRef<number | null>(null);
+  const bgFadeRafRef = useRef<number | null>(null);
   const startWallRef = useRef<number>(0);
+  const playingRef = useRef(false);
+  const tSecRef = useRef(0);
   const [playing, setPlaying] = useState(false);
   const [tSec, setTSec] = useState(0);
+
+  useEffect(() => {
+    tSecRef.current = tSec;
+  }, [tSec]);
+
+  const bedActive =
+    Boolean(backgroundPlaybackUrl && backgroundEnabled) &&
+    Boolean(backgroundPlaybackUrl);
 
   const total = totalDurationSec;
 
   const seg = clips.length > 0 ? total / clips.length : total;
   const clipIndex =
     clips.length > 0 ? Math.min(clips.length - 1, Math.floor(tSec / seg)) : 0;
+
+  const syncBedTime = useCallback(
+    (timelineSec: number) => {
+      const bg = bgAudioRef.current;
+      if (!bg || !bedActive || !Number.isFinite(bg.duration) || bg.duration <= 0.05)
+        return;
+      const wrapped = timelineSec % bg.duration;
+      if (Math.abs(bg.currentTime - wrapped) > 0.14) bg.currentTime = wrapped;
+    },
+    [bedActive],
+  );
+
   const activeClip = clips[clipIndex];
 
   const preset = getPresetById(captions.presetId);
@@ -66,6 +106,10 @@ export function VideoPreview({
   }, [activeClip, clipIndex, seg, tSec]);
 
   useEffect(() => {
+    playingRef.current = playing;
+  }, [playing]);
+
+  useEffect(() => {
     const v = videoRef.current;
     if (!v || !activeClip) return;
     if (v.src !== activeClip.url) {
@@ -78,19 +122,87 @@ export function VideoPreview({
     syncVideoTime();
   }, [syncVideoTime, playing]);
 
+  /** Fade bed in/out when play state changes */
+  useEffect(() => {
+    const bg = bgAudioRef.current;
+    if (!bg) return;
+
+    if (!bedActive) {
+      bg.pause();
+      return;
+    }
+
+    if (bgFadeRafRef.current) cancelAnimationFrame(bgFadeRafRef.current);
+
+    const peak = previewBedPeak(backgroundVolume, hasVoiceAudio);
+
+    if (playing) {
+      bg.volume = 0;
+      bg.loop = true;
+      const timelineHint =
+        voiceUrl && audioRef.current
+          ? Math.min(audioRef.current.currentTime, total)
+          : tSecRef.current;
+      syncBedTime(timelineHint);
+      void bg.play().catch(() => {});
+      const start = performance.now();
+      const fadeIn = () => {
+        if (!playingRef.current || !bgAudioRef.current) return;
+        const k = Math.min(
+          1,
+          (performance.now() - start) / PREVIEW_BG_FADE_IN_MS,
+        );
+        bgAudioRef.current.volume = peak * k;
+        if (k < 1) bgFadeRafRef.current = requestAnimationFrame(fadeIn);
+      };
+      fadeIn();
+      return () => {
+        if (bgFadeRafRef.current) cancelAnimationFrame(bgFadeRafRef.current);
+      };
+    }
+
+    const startVol = bg.volume;
+    const start = performance.now();
+    const fadeOut = () => {
+      const k = Math.min(
+        1,
+        (performance.now() - start) / PREVIEW_BG_FADE_OUT_MS,
+      );
+      bg.volume = startVol * (1 - k);
+      if (k < 1) bgFadeRafRef.current = requestAnimationFrame(fadeOut);
+      else {
+        bg.pause();
+        bg.volume = peak;
+      }
+    };
+    fadeOut();
+    return () => {
+      if (bgFadeRafRef.current) cancelAnimationFrame(bgFadeRafRef.current);
+    };
+  }, [playing, bedActive]);
+
+  /** Live slider tweak while playing */
+  useEffect(() => {
+    const bg = bgAudioRef.current;
+    if (!bg || !bedActive || !playing) return;
+    const peak = previewBedPeak(backgroundVolume, hasVoiceAudio);
+    bg.volume = peak;
+  }, [backgroundVolume, bedActive, playing, hasVoiceAudio]);
+
   useEffect(() => {
     if (!playing) {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       return;
     }
 
-    const useAudioClock = Boolean(voiceUrl && audioRef.current);
+    const useVoiceClock = Boolean(voiceUrl && audioRef.current);
 
-    if (useAudioClock) {
+    if (useVoiceClock) {
       const tick = () => {
         const a = audioRef.current;
         const next = a ? Math.min(a.currentTime, total) : 0;
         setTSec(next);
+        syncBedTime(next);
         if (!a || a.ended || next >= total - 0.01) {
           setPlaying(false);
           return;
@@ -111,13 +223,14 @@ export function VideoPreview({
         setPlaying(false);
       }
       setTSec(next);
+      syncBedTime(next);
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [playing, total, voiceUrl]);
+  }, [playing, total, voiceUrl, syncBedTime]);
 
   const toggle = () => {
     if (clips.length === 0) return;
@@ -132,11 +245,19 @@ export function VideoPreview({
     startWallRef.current = performance.now() - startT * 1000;
     setPlaying(true);
     const v = videoRef.current;
-    if (voiceUrl && audioRef.current) {
-      const a = audioRef.current;
+    const a = audioRef.current;
+    const bg = bgAudioRef.current;
+
+    if (voiceUrl && a) {
       a.currentTime = tSec >= total ? 0 : tSec;
       void a.play().catch(() => {});
+      if (bg && bedActive && bg.duration && Number.isFinite(bg.duration)) {
+        bg.currentTime = Math.min(a.currentTime, total) % bg.duration;
+      }
+    } else if (bg && bedActive && bg.duration && Number.isFinite(bg.duration)) {
+      bg.currentTime = startT % bg.duration;
     }
+
     void v?.play().catch(() => {});
   };
 
@@ -151,6 +272,15 @@ export function VideoPreview({
     <div className="mx-auto w-full max-w-sm">
       {voiceUrl ? (
         <audio ref={audioRef} src={voiceUrl} preload="auto" className="hidden" />
+      ) : null}
+      {bedActive && backgroundPlaybackUrl ? (
+        <audio
+          ref={bgAudioRef}
+          src={backgroundPlaybackUrl}
+          preload="auto"
+          className="hidden"
+          loop
+        />
       ) : null}
       <div className="relative aspect-[9/16] w-full overflow-hidden rounded-3xl bg-black shadow-[0_22px_42px_rgba(9,22,18,0.35)] ring-1 ring-slate-200/90">
         {activeClip ? (

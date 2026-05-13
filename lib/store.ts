@@ -12,6 +12,7 @@ import type {
   WizardVoice,
   WizardCaptions,
   CaptionDisplayMode,
+  WizardBackgroundAudio,
 } from "@/types";
 import { buildCaptionChunksFromText } from "@/lib/chunk-text";
 import {
@@ -65,6 +66,7 @@ type WizardState = {
   voice: WizardVoice;
   clips: ClipItem[];
   captions: WizardCaptions;
+  backgroundAudio: WizardBackgroundAudio;
 
   setStep: (s: WizardStep) => void;
   next: () => void;
@@ -80,6 +82,8 @@ type WizardState = {
   clearVoice: () => void;
 
   addClips: (files: File[]) => void;
+  /** Add a clip from a fetched blob (e.g. Instagram import) — same pipeline as file upload. */
+  addClipFromBlob: (blob: Blob, fileName: string) => void;
   removeClip: (id: string) => void;
   moveClip: (id: string, direction: "up" | "down") => void;
   setClipDuration: (id: string, sec: number) => void;
@@ -105,6 +109,11 @@ type WizardState = {
     readingLinesCovered: number;
   }) => void;
 
+  setBackgroundAudioFromFile: (file: File) => void;
+  clearBackgroundAudio: () => void;
+  setBackgroundAudioEnabled: (enabled: boolean) => void;
+  setBackgroundAudioVolume: (volume: number) => void;
+
   resetWizard: () => void;
 };
 
@@ -115,6 +124,13 @@ const initialContent: WizardContent = {
 };
 
 const initialVoice: WizardVoice = {};
+
+const DEFAULT_BED_VOLUME = 0.18;
+
+const initialBackgroundAudio: WizardBackgroundAudio = {
+  enabled: false,
+  volume: DEFAULT_BED_VOLUME,
+};
 
 const initialCaptions = (): WizardCaptions => {
   const p = getPresetById(DEFAULT_PRESET_ID)!;
@@ -135,6 +151,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   voice: { ...initialVoice },
   clips: [],
   captions: initialCaptions(),
+  backgroundAudio: { ...initialBackgroundAudio },
 
   setStep: (s) => set({ step: s }),
 
@@ -259,6 +276,24 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       url: URL.createObjectURL(file),
     }));
     set({ clips: [...current, ...newItems] });
+  },
+
+  addClipFromBlob: (blob, fileName) => {
+    const current = get().clips;
+    const room = 5 - current.length;
+    if (room <= 0) return;
+    const type =
+      blob.type && blob.type.startsWith("video/")
+        ? blob.type
+        : "video/mp4";
+    const file = new File([blob], fileName, { type });
+    const url = URL.createObjectURL(blob);
+    const item: ClipItem = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      file,
+      url,
+    };
+    set({ clips: [...current, item] });
   },
 
   removeClip: (id) => {
@@ -425,9 +460,50 @@ export const useWizardStore = create<WizardState>((set, get) => ({
     );
   },
 
+  setBackgroundAudioFromFile: (file) => {
+    const prev = get().backgroundAudio.url;
+    revokeUrl(prev);
+    const url = URL.createObjectURL(file);
+    set({
+      backgroundAudio: {
+        ...get().backgroundAudio,
+        blob: file,
+        url,
+        fileName: file.name,
+        enabled: true,
+      },
+    });
+  },
+
+  clearBackgroundAudio: () => {
+    const prev = get().backgroundAudio.url;
+    revokeUrl(prev);
+    const vol = get().backgroundAudio.volume;
+    set({
+      backgroundAudio: {
+        enabled: false,
+        volume: vol,
+      },
+    });
+  },
+
+  setBackgroundAudioEnabled: (enabled) =>
+    set((s) => ({
+      backgroundAudio: { ...s.backgroundAudio, enabled },
+    })),
+
+  setBackgroundAudioVolume: (volume) =>
+    set((s) => ({
+      backgroundAudio: {
+        ...s.backgroundAudio,
+        volume: Math.min(1, Math.max(0, volume)),
+      },
+    })),
+
   resetWizard: () => {
-    const { voice, clips } = get();
+    const { voice, clips, backgroundAudio } = get();
     revokeUrl(voice.url);
+    revokeUrl(backgroundAudio.url);
     clips.forEach((c) => revokeUrl(c.url));
     set({
       step: 1,
@@ -435,6 +511,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       voice: { ...initialVoice },
       clips: [],
       captions: initialCaptions(),
+      backgroundAudio: { ...initialBackgroundAudio },
     });
   },
 }));

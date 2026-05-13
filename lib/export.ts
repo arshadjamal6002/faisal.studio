@@ -1,13 +1,35 @@
 "use client";
 
 import type { ClipItem, WizardCaptions } from "@/types";
+import type { ExportAudioBed } from "@/lib/export/types";
 import { getPresetById } from "@/lib/caption-presets";
 import { getActiveCaptionState } from "@/lib/caption-state";
+
+const EXPORT_BED_FADE_IN_SEC = 0.42;
+const EXPORT_BED_FADE_OUT_SEC = 0.52;
+
+async function decodeAudioBuffer(
+  ctx: AudioContext,
+  blob?: Blob,
+  url?: string,
+): Promise<AudioBuffer | null> {
+  if (!blob && !url) return null;
+  try {
+    const raw = blob
+      ? await blob.arrayBuffer()
+      : await fetch(url!).then((r) => r.arrayBuffer());
+    return await ctx.decodeAudioData(raw.slice(0));
+  } catch {
+    return null;
+  }
+}
 
 export type ExportOptions = {
   clips: ClipItem[];
   voiceBlob?: Blob;
   voiceUrl?: string;
+  /** Optional instrumental bed — mixed under voice when enabled */
+  audioBed?: ExportAudioBed;
   totalDurationSec: number;
   captions: WizardCaptions;
   sourceText: string;
@@ -206,6 +228,7 @@ export async function exportVideoToWebm(
     clips,
     voiceBlob,
     voiceUrl,
+    audioBed,
     totalDurationSec,
     captions,
     sourceText,
@@ -236,25 +259,74 @@ export async function exportVideoToWebm(
 
   let audioDest: MediaStreamAudioDestinationNode | null = null;
   let audioCtx: AudioContext | null = null;
-  let bufferSource: AudioBufferSourceNode | null = null;
+  let voiceSrc: AudioBufferSourceNode | null = null;
+  let bedSrc: AudioBufferSourceNode | null = null;
 
   const stream = new MediaStream([videoTrack!]);
 
-  if (voiceBlob || voiceUrl) {
-    try {
-      audioCtx = new AudioContext();
-      const buf = voiceBlob
-        ? await voiceBlob.arrayBuffer()
-        : await fetch(voiceUrl!).then((r) => r.arrayBuffer());
-      const audioBuffer = await audioCtx.decodeAudioData(buf.slice(0));
-      bufferSource = audioCtx.createBufferSource();
-      bufferSource.buffer = audioBuffer;
+  try {
+    audioCtx = new AudioContext();
+    const voiceBuf = await decodeAudioBuffer(audioCtx, voiceBlob, voiceUrl);
+    const bedShouldDecode =
+      audioBed?.enabled && Boolean(audioBed.blob || audioBed.url);
+    const bedBuf = bedShouldDecode
+      ? await decodeAudioBuffer(audioCtx, audioBed!.blob, audioBed!.url)
+      : null;
+
+    if (!voiceBuf && !bedBuf) {
+      await audioCtx.close();
+      audioCtx = null;
+    } else {
       audioDest = audioCtx.createMediaStreamDestination();
-      bufferSource.connect(audioDest);
+      const tStart = audioCtx.currentTime;
+      const totalSec = total;
+
+      if (voiceBuf) {
+        voiceSrc = audioCtx.createBufferSource();
+        voiceSrc.buffer = voiceBuf;
+        const vGain = audioCtx.createGain();
+        vGain.gain.value = 1;
+        voiceSrc.connect(vGain).connect(audioDest);
+        const playLen = Math.min(voiceBuf.duration, totalSec);
+        voiceSrc.start(tStart);
+        voiceSrc.stop(tStart + playLen);
+      }
+
+      if (bedBuf && audioBed?.enabled) {
+        bedSrc = audioCtx.createBufferSource();
+        bedSrc.buffer = bedBuf;
+        bedSrc.loop = true;
+        const bGain = audioCtx.createGain();
+        const hasVoice = Boolean(voiceBuf);
+        const slider = Math.min(
+          1,
+          Math.max(0, audioBed.volumeLinear ?? 0),
+        );
+        const peak = slider * (hasVoice ? 0.29 : 0.44);
+        bGain.gain.setValueAtTime(0, tStart);
+        bGain.gain.linearRampToValueAtTime(
+          peak,
+          tStart + EXPORT_BED_FADE_IN_SEC,
+        );
+        const fadeStart = tStart + Math.max(
+          EXPORT_BED_FADE_IN_SEC,
+          totalSec - EXPORT_BED_FADE_OUT_SEC,
+        );
+        bGain.gain.setValueAtTime(peak, fadeStart);
+        bGain.gain.linearRampToValueAtTime(0, tStart + totalSec);
+        bedSrc.connect(bGain).connect(audioDest);
+        bedSrc.start(tStart);
+        bedSrc.stop(tStart + totalSec);
+      }
+
       audioDest.stream.getAudioTracks().forEach((t) => stream.addTrack(t));
-    } catch {
-      /* silent export if audio decode fails */
     }
+  } catch {
+    /* silent export if audio decode fails */
+    await audioCtx?.close().catch(() => {});
+    audioCtx = null;
+    voiceSrc = null;
+    bedSrc = null;
   }
 
   const recorder = new MediaRecorder(stream, { mimeType: mime });
@@ -274,7 +346,6 @@ export async function exportVideoToWebm(
   });
 
   recorder.start(100);
-  bufferSource?.start(0);
 
   const start = performance.now();
   let lastProgress = 0;
@@ -306,7 +377,6 @@ export async function exportVideoToWebm(
 
       if (t >= total) {
         recorder.stop();
-        bufferSource?.stop();
         void audioCtx?.close();
         onProgress?.(1);
         resolveLoop();
