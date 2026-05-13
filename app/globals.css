@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --cream: #faf7f2;
+  --deen: #0f766e;
+  --gold: #c9a24a;
+}
+
+body {
+  @apply bg-cream text-slate-800 antialiased;
+}
+
+/* Focus rings for accessibility */
+:focus-visible {
+  @apply outline-2 outline-offset-2 outline-deen;
+}
