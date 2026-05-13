@@ -4,12 +4,12 @@ A **frontend-first MVP** for creating short **vertical (9:16)** Islamic reminder
 
 ## Features
 
-- **5-step builder**: Content → Voice → Clips → Captions → Preview & export
+- **5-step builder**: Content → Clips → Captions → Voice → Preview & export
 - **Local sample libraries** for hadith, Quran verses, quotes, and duas (`data/`)
 - **Custom text** with optional reference
 - **Voice**: in-browser recording (`MediaRecorder`) or audio file upload, with preview and replace
 - **Clips**: 2–5 videos, reorder, thumbnails + duration
-- **Captions**: chunks from your **source text** (no speech-to-text); presets + size / color / position / background
+- **Captions**: timed from **narration / audio** (or guided-reading capture); clips only set length when there is no voice
 - **Preview**: sequenced clips with caption overlay
 - **Export**: basic **WebM** download via canvas `captureStream` + `MediaRecorder` (codec support varies by browser)
 

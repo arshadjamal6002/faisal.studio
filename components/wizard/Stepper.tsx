@@ -3,7 +3,7 @@
 import type { WizardStep } from "@/lib/store";
 import { Check } from "lucide-react";
 
-const LABELS = ["Content", "Voice", "Clips", "Captions", "Preview"] as const;
+const LABELS = ["Content", "Clips", "Captions", "Voice", "Preview"] as const;
 
 type Props = {
   step: WizardStep;

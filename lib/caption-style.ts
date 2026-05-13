@@ -9,37 +9,52 @@ export function captionContainerJustify(caps: WizardCaptions): string {
   return "justify-center";
 }
 
+function presetBackgroundClasses(caps: WizardCaptions): string {
+  switch (caps.background) {
+    case "none":
+      return "";
+    case "solid":
+      if (caps.presetId === "deen-green") {
+        return "rounded-full bg-deen px-4 py-2 shadow-sm";
+      }
+      if (caps.presetId === "bold-reminder") {
+        return "rounded-lg bg-white/95 px-3 py-2 shadow-md";
+      }
+      return "rounded-2xl bg-black/55 px-4 py-2";
+    case "blur":
+      return "rounded-2xl bg-black/45 px-4 py-2 backdrop-blur-sm";
+    case "gradient":
+      return "rounded-2xl bg-gradient-to-t from-black/70 to-transparent px-4 py-3";
+    default:
+      return "";
+  }
+}
+
 /** Tailwind classes for caption overlay (preview / DOM video stage). */
 export function captionOverlayClassNames(caps: WizardCaptions): string {
   const preset = getPresetById(caps.presetId);
   const base = "max-w-[92%] text-center px-4 break-words leading-snug";
 
-  let bg = "";
-  switch (caps.background) {
-    case "solid":
-      bg = "rounded-2xl bg-black/55 px-4 py-2";
-      break;
-    case "blur":
-      bg = "rounded-2xl bg-black/45 px-4 py-2 backdrop-blur-sm";
-      break;
-    case "gradient":
-      bg = "rounded-2xl bg-gradient-to-t from-black/70 to-transparent px-4 py-3";
-      break;
-    default:
-      bg = caps.presetId === "minimal-white" ? "" : "";
-  }
+  const bg = presetBackgroundClasses(caps);
 
-  const font =
-    preset?.fontFamily === "serif" ? "font-serif" : "font-sans font-semibold";
+  const family =
+    preset?.fontFamily === "serif" ? "font-serif" : "font-sans";
 
   const upper = preset?.uppercase ? "uppercase tracking-wide" : "";
 
-  return `${base} ${bg} ${font} ${upper}`;
+  return `${base} ${bg} ${family} ${upper}`.replace(/\s+/g, " ").trim();
 }
 
 export function captionInlineStyle(caps: WizardCaptions): CSSProperties {
+  const preset = getPresetById(caps.presetId);
+  const fontFamily =
+    preset?.fontFamily === "serif"
+      ? "var(--font-cormorant), Georgia, serif"
+      : "var(--font-inter), system-ui, sans-serif";
   return {
     fontSize: `${caps.fontSize}px`,
+    fontWeight: preset?.fontWeight ?? 600,
+    fontFamily,
     color: caps.color,
     textShadow:
       caps.background === "none"

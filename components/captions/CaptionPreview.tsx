@@ -8,7 +8,7 @@ import {
   captionOverlayClassNames,
 } from "@/lib/caption-style";
 import { getPresetById } from "@/lib/caption-presets";
-import { getCaptionLineForTime } from "@/lib/caption-display";
+import { getActiveCaptionState } from "@/lib/caption-state";
 
 type Props = {
   captions: WizardCaptions;
@@ -38,7 +38,7 @@ export function CaptionPreview({ captions, sampleText }: Props) {
     return () => cancelAnimationFrame(raf);
   }, [loopMs, captions.chunks, captions.displayMode]);
 
-  const line = getCaptionLineForTime(captions, tMs, sampleText);
+  const line = getActiveCaptionState(captions, tMs, sampleText).text;
   const text = preset?.uppercase ? line.toUpperCase() : line;
 
   return (

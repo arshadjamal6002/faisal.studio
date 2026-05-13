@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ClipItem, WizardCaptions } from "@/types";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { ClipItem, WizardCaptions, WizardVoice } from "@/types";
 import {
   captionContainerJustify,
   captionInlineStyle,
   captionOverlayClassNames,
 } from "@/lib/caption-style";
-import { getCaptionLineForTime } from "@/lib/caption-display";
+import { getActiveCaptionState } from "@/lib/caption-state";
 import { getPresetById } from "@/lib/caption-presets";
 import { Button } from "@/components/ui/Button";
 import { Pause, Play } from "lucide-react";
@@ -15,28 +15,19 @@ import { Pause, Play } from "lucide-react";
 type Props = {
   clips: ClipItem[];
   voiceUrl?: string;
-  voiceDurationSec?: number;
+  /** Shared with export — must match `usePreviewDurationSec(voice, clips)` from parent. */
+  totalDurationSec: number;
+  /** Full voice state for narration-based timeline (reading end, etc.) */
+  voice: WizardVoice;
   captions: WizardCaptions;
   sourceText: string;
 };
 
-function totalDurationSec(
-  clips: ClipItem[],
-  voiceDurationSec?: number,
-): number {
-  if (voiceDurationSec && voiceDurationSec > 0) return voiceDurationSec;
-  const sum = clips.reduce(
-    (acc, c) => acc + (c.durationSec && c.durationSec > 0 ? c.durationSec : 0),
-    0,
-  );
-  if (sum > 0) return sum;
-  return clips.length * 3;
-}
-
 export function VideoPreview({
   clips,
   voiceUrl,
-  voiceDurationSec,
+  totalDurationSec,
+  voice,
   captions,
   sourceText,
 }: Props) {
@@ -47,21 +38,19 @@ export function VideoPreview({
   const [playing, setPlaying] = useState(false);
   const [tSec, setTSec] = useState(0);
 
-  const total = useMemo(
-    () => totalDurationSec(clips, voiceDurationSec),
-    [clips, voiceDurationSec],
-  );
+  const total = totalDurationSec;
+
   const seg = clips.length > 0 ? total / clips.length : total;
   const clipIndex =
     clips.length > 0 ? Math.min(clips.length - 1, Math.floor(tSec / seg)) : 0;
   const activeClip = clips[clipIndex];
 
   const preset = getPresetById(captions.presetId);
-  const capTextRaw = getCaptionLineForTime(
+  const capTextRaw = getActiveCaptionState(
     captions,
     tSec * 1000,
     sourceText,
-  );
+  ).text;
   const capText = preset?.uppercase ? capTextRaw.toUpperCase() : capTextRaw;
 
   const syncVideoTime = useCallback(() => {
@@ -69,7 +58,9 @@ export function VideoPreview({
     if (!v || !activeClip) return;
     const local = Math.max(0, tSec - clipIndex * seg);
     const dur = v.duration;
-    if (dur && Number.isFinite(dur)) {
+    if (dur && Number.isFinite(dur) && dur > 0.1) {
+      v.currentTime = local % dur;
+    } else if (dur && Number.isFinite(dur)) {
       v.currentTime = Math.min(local, Math.max(0, dur - 0.04));
     }
   }, [activeClip, clipIndex, seg, tSec]);

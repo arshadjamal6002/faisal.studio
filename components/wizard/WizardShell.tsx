@@ -16,11 +16,11 @@ function stepTitle(step: number) {
     case 1:
       return "Content";
     case 2:
-      return "Voice";
-    case 3:
       return "Clips";
-    case 4:
+    case 3:
       return "Captions";
+    case 4:
+      return "Voice";
     case 5:
       return "Preview & export";
     default:
@@ -39,12 +39,12 @@ export function WizardShell() {
     step === 1
       ? content.text.trim().length > 0
       : step === 2
+        ? clips.length >= 2 && clips.length <= 5
+      : step === 3
         ? true
-        : step === 3
-          ? clips.length >= 2 && clips.length <= 5
-          : step === 4
-            ? true
-            : false;
+      : step === 4
+        ? true
+        : false;
 
   return (
     <div className="min-h-screen bg-cream">
@@ -75,15 +75,15 @@ export function WizardShell() {
             {stepTitle(step)}
           </h1>
           <p className="mt-1 text-sm text-slate-600">
-            Build a calm, vertical reminder — no paid tools required.
+            Pehle layout tayar karein, phir awaaz — aakhir mein preview aur export.
           </p>
         </div>
 
         <div className="mt-6">
           {step === 1 ? <StepContent /> : null}
-          {step === 2 ? <StepVoice /> : null}
-          {step === 3 ? <StepClips /> : null}
-          {step === 4 ? <StepCaptions /> : null}
+          {step === 2 ? <StepClips /> : null}
+          {step === 3 ? <StepCaptions /> : null}
+          {step === 4 ? <StepVoice /> : null}
           {step === 5 ? <StepPreview /> : null}
         </div>
 
@@ -105,7 +105,7 @@ export function WizardShell() {
               onClick={next}
               className="gap-2"
               title={
-                step === 3 && clips.length < 2
+                step === 2 && clips.length < 2
                   ? "Add at least 2 clips"
                   : step === 1 && !content.text.trim()
                     ? "Choose or enter content"

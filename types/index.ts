@@ -55,6 +55,10 @@ export type WizardVoice = {
   readingTimingSourceText?: string;
   readingMode?: ReadingMode;
   autoSecPerLine?: number;
+  /** How many teleprompter lines existed when recording started */
+  readingLinesTotal?: number;
+  /** How many lines were reached (inclusive of current line) when recording stopped */
+  readingLinesCovered?: number;
 };
 
 export type WizardCaptions = {

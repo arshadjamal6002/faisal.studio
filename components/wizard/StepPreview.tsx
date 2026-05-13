@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { Card, CardDescription, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -8,21 +8,9 @@ import { VideoPreview } from "@/components/preview/VideoPreview";
 import { useWizardStore } from "@/lib/store";
 import { getPresetById } from "@/lib/caption-presets";
 import { exportVideoToWebm, downloadBlob } from "@/lib/export";
+import { useVoicePlaybackUrl } from "@/hooks/useVoicePlaybackUrl";
+import { usePreviewDurationSec } from "@/hooks/usePreviewDurationSec";
 import { Download, Loader2, RotateCcw } from "lucide-react";
-
-function totalDurationSec(
-  clips: { durationSec?: number }[],
-  voiceDurationSec?: number,
-): number {
-  if (voiceDurationSec && voiceDurationSec > 0) return voiceDurationSec;
-  const sum = clips.reduce(
-    (acc, c) =>
-      acc + (c.durationSec && c.durationSec > 0 ? c.durationSec : 0),
-    0,
-  );
-  if (sum > 0) return sum;
-  return Math.max(1, clips.length) * 3;
-}
 
 export function StepPreview() {
   const [exporting, setExporting] = useState(false);
@@ -36,10 +24,9 @@ export function StepPreview() {
   const resetWizard = useWizardStore((s) => s.resetWizard);
 
   const preset = getPresetById(captions.presetId);
-  const total = useMemo(
-    () => totalDurationSec(clips, voice.durationSec),
-    [clips, voice.durationSec],
-  );
+  const total = usePreviewDurationSec(voice, clips);
+  const voicePlaybackUrl = useVoicePlaybackUrl(voice);
+  const hasVoiceAudio = Boolean(voice.url || voice.blob);
 
   const handleExport = async () => {
     setError(null);
@@ -87,8 +74,13 @@ export function StepPreview() {
               <div>
                 <dt className="font-medium text-slate-700">Audio</dt>
                 <dd className="mt-0.5 text-slate-600">
-                  {voice.url
-                    ? `${voice.fileName ?? "Audio"} · ${voice.durationSec?.toFixed(1) ?? "?"}s`
+                  {hasVoiceAudio
+                    ? `${voice.fileName ?? "Audio"} · ${
+                        voice.durationSec != null &&
+                        Number.isFinite(voice.durationSec)
+                          ? voice.durationSec.toFixed(1)
+                          : "…"
+                      }s`
                     : "Skipped (silent — timing from clips)"}
                 </dd>
               </div>
@@ -97,6 +89,12 @@ export function StepPreview() {
                 <dd className="mt-0.5 text-slate-600">
                   {clips.length} clip{clips.length === 1 ? "" : "s"} ·{" "}
                   {total.toFixed(1)}s timeline
+                  {hasVoiceAudio ? (
+                    <span className="text-slate-500">
+                      {" "}
+                      (clips loop to match narration)
+                    </span>
+                  ) : null}
                 </dd>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {clips.map((c) => (
@@ -180,7 +178,7 @@ export function StepPreview() {
             )}
             {clips.length < 2 ? (
               <p className="mt-2 text-xs text-amber-700">
-                Add at least two clips (step 3) to enable export.
+                Add at least two clips (step 2) to enable export.
               </p>
             ) : null}
           </Card>
@@ -192,12 +190,30 @@ export function StepPreview() {
           <div className="mt-4">
             <VideoPreview
               clips={clips}
-              voiceUrl={voice.url}
-              voiceDurationSec={voice.durationSec}
+              voiceUrl={voicePlaybackUrl}
+              totalDurationSec={total}
+              voice={voice}
               captions={captions}
               sourceText={content.text}
             />
           </div>
+          {hasVoiceAudio ? (
+            <div className="mt-3 space-y-2 text-center text-[11px] leading-relaxed text-slate-500">
+              <p>
+                Caption timing follows your narration pace. Clips spread across the
+                same length so subtitles stay in sync with your voice.
+              </p>
+              {voice.readingLinesTotal != null &&
+              voice.readingLinesCovered != null &&
+              voice.readingLinesCovered < voice.readingLinesTotal ? (
+                <p className="rounded-lg bg-slate-100/80 px-2 py-1.5 text-slate-600">
+                  Only the recorded portion of your text appears as subtitles. Some
+                  lines were not reached in narration — re-record on the Voice step
+                  to include them.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </Card>
       </div>
     </div>

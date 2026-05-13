@@ -47,7 +47,7 @@ export function StepCaptions() {
       <Card>
         <CardTitle>Caption style</CardTitle>
         <CardDescription>
-          Subtitles aap ke text se aati hain. Agar Step 2 par recording ke saath
+          Subtitles aap ke text se aati hain. Agar Step 4 par recording ke saath
           reading mode use ki ho to timing wahan se milti hai — warna audio par
           barabar taqseem.
         </CardDescription>

@@ -47,8 +47,8 @@ export default function HomePage() {
             <Sparkles className="mb-3 h-8 w-8 text-gold-muted" aria-hidden />
             <CardTitle>Guided steps</CardTitle>
             <CardDescription>
-              Content → voice → clips → captions → preview. Stay focused without
-              a cluttered editor.
+              Content → clips → captions → voice → preview. Layout pehle, phir
+              guided narration, phir export.
             </CardDescription>
           </Card>
           <Card>

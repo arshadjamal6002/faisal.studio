@@ -20,6 +20,8 @@ import {
   scaleCaptionChunks,
 } from "@/lib/reading-timing";
 import { CAPTION_PRESETS, getPresetById } from "@/lib/caption-presets";
+import { silentClipTimelineMs } from "@/lib/timeline";
+import { probeAudioDurationSecFromBlob } from "@/lib/voice-duration";
 
 export type WizardStep = 1 | 2 | 3 | 4 | 5;
 
@@ -40,6 +42,8 @@ function stripReadingIfTextChanged(
     readingTimingSourceText: _t,
     readingMode: _m,
     autoSecPerLine: _a,
+    readingLinesTotal: _lt,
+    readingLinesCovered: _lc,
     ...rest
   } = voice;
   return rest;
@@ -97,6 +101,8 @@ type WizardState = {
     readingMode: ReadingMode;
     autoSecPerLine?: number;
     sourceText: string;
+    readingLinesTotal: number;
+    readingLinesCovered: number;
   }) => void;
 
   resetWizard: () => void;
@@ -206,17 +212,30 @@ export const useWizardStore = create<WizardState>((set, get) => ({
     set({
       voice: { blob, url, fileName: fileName ?? "recording.webm" },
     });
+
+    const applyDuration = (sec: number) => {
+      if (!Number.isFinite(sec) || sec <= 0) return;
+      set((s) => {
+        if (s.voice.url !== url) return s;
+        return { voice: { ...s.voice, durationSec: sec } };
+      });
+      get().regenerateChunks();
+    };
+
     const audio = new Audio(url);
     audio.addEventListener(
       "loadedmetadata",
       () => {
-        if (!Number.isFinite(audio.duration)) return;
-        set((s) => ({
-          voice: { ...s.voice, durationSec: audio.duration },
-        }));
+        if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
+        applyDuration(audio.duration);
       },
       { once: true },
     );
+
+    void (async () => {
+      const probed = await probeAudioDurationSecFromBlob(blob);
+      if (probed != null) applyDuration(probed);
+    })();
   },
 
   setVoiceFromFile: (file) => {
@@ -299,14 +318,6 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   regenerateChunks: () => {
     const { content, voice, clips } = get();
     const text = content.text.trim();
-    let totalMs = (voice.durationSec ?? 0) * 1000;
-    if (totalMs <= 0 && clips.length > 0) {
-      const sum = clips.reduce(
-        (acc, c) => acc + (c.durationSec ?? 3) * 1000,
-        0,
-      );
-      totalMs = sum > 0 ? sum : clips.length * 3000;
-    }
 
     const useReading =
       voice.readingCaptionChunks &&
@@ -315,20 +326,34 @@ export const useWizardStore = create<WizardState>((set, get) => ({
 
     if (useReading) {
       const raw = voice.readingCaptionChunks!.map((c) => ({ ...c }));
-      const chunks =
-        totalMs > 0 ? scaleCaptionChunks(raw, totalMs) : raw;
+      const rawEnd = raw.length ? raw[raw.length - 1].endMs : 0;
+      const audioMs = (voice.durationSec ?? 0) * 1000;
+      /** Narration only — never stretch reading timings to clip length */
+      const targetMs =
+        audioMs > 0 ? audioMs : rawEnd > 0 ? rawEnd : 0;
+
+      let chunks: CaptionChunk[];
+      if (targetMs > 0 && rawEnd > 0 && Math.abs(rawEnd - targetMs) > 80) {
+        chunks = scaleCaptionChunks(raw, targetMs);
+      } else {
+        chunks = raw;
+      }
       set((state) => ({ captions: { ...state.captions, chunks } }));
       return;
     }
 
-    if (totalMs <= 0) {
-      const fallbackChunks = buildCaptionChunksFromText(text, 0);
-      set((state) => ({
-        captions: { ...state.captions, chunks: fallbackChunks },
-      }));
+    const audioMs = (voice.durationSec ?? 0) * 1000;
+    if (audioMs > 0) {
+      const chunks: CaptionChunk[] = buildCaptionChunksFromText(text, audioMs);
+      set((state) => ({ captions: { ...state.captions, chunks } }));
       return;
     }
-    const chunks: CaptionChunk[] = buildCaptionChunksFromText(text, totalMs);
+
+    const clipMs = silentClipTimelineMs(clips);
+    const chunks: CaptionChunk[] = buildCaptionChunksFromText(
+      text,
+      clipMs > 0 ? clipMs : 0,
+    );
     set((state) => ({ captions: { ...state.captions, chunks } }));
   },
 
@@ -342,6 +367,8 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       readingMode,
       autoSecPerLine,
       sourceText,
+      readingLinesTotal,
+      readingLinesCovered,
     } = payload;
     const prev = get().voice.url;
     revokeUrl(prev);
@@ -353,23 +380,30 @@ export const useWizardStore = create<WizardState>((set, get) => ({
     );
     let chunks = lineBoundariesToChunks(lines, bounds);
 
+    const wallSec = Math.max(0.1, wallDurationMs / 1000);
+
     set({
       voice: {
         blob,
         url,
         fileName: fileName ?? "recording.webm",
+        /** Wall clock until `loadedmetadata` / decode refines (keeps preview/export audio-led). */
+        durationSec: wallSec,
         readingCaptionChunks: chunks,
         readingTimingSourceText: sourceText.trim(),
         readingMode,
         autoSecPerLine,
+        readingLinesTotal,
+        readingLinesCovered,
       },
     });
+    get().regenerateChunks();
 
     const audio = new Audio(url);
     audio.addEventListener(
       "loadedmetadata",
       () => {
-        if (!Number.isFinite(audio.duration)) return;
+        if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
         const durMs = audio.duration * 1000;
         set((s) => {
           const ch = s.voice.readingCaptionChunks;

@@ -2,7 +2,7 @@
 
 import type { ClipItem, WizardCaptions } from "@/types";
 import { getPresetById } from "@/lib/caption-presets";
-import { getCaptionLineForTime } from "@/lib/caption-display";
+import { getActiveCaptionState } from "@/lib/caption-state";
 
 export type ExportOptions = {
   clips: ClipItem[];
@@ -91,6 +91,9 @@ function fillRoundRect(
   ctx.fill();
 }
 
+const DEEN_TEAL = "#0F766E";
+
+/** Mirrors `lib/caption-style.ts` preset + background rules on canvas. */
 function drawCaption(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -104,9 +107,10 @@ function drawCaption(
     preset?.fontFamily === "serif"
       ? "Cormorant Garamond, Georgia, serif"
       : "Inter, system-ui, sans-serif";
+  const weight = preset?.fontWeight ?? 600;
   const padX = 32;
   const maxW = canvasW - padX * 2;
-  ctx.font = `${preset?.fontWeight ?? 600} ${caps.fontSize}px ${fontFamily}`;
+  ctx.font = `${weight} ${caps.fontSize}px ${fontFamily}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   const lines = wrapLines(ctx, display, maxW);
@@ -125,8 +129,20 @@ function drawCaption(
   const boxX = canvasW / 2 - boxW / 2;
   const boxY = startY - boxPad / 2;
 
-  if (caps.background === "solid" || caps.background === "blur") {
-    ctx.fillStyle = "rgba(0,0,0,0.55)";
+  if (caps.background === "solid") {
+    if (caps.presetId === "deen-green") {
+      ctx.fillStyle = DEEN_TEAL;
+      const r = Math.min(boxH / 2, 28);
+      fillRoundRect(ctx, boxX, boxY, boxW, boxH, r);
+    } else if (caps.presetId === "bold-reminder") {
+      ctx.fillStyle = "rgba(255,255,255,0.95)";
+      fillRoundRect(ctx, boxX, boxY, boxW, boxH, 12);
+    } else {
+      ctx.fillStyle = "rgba(0,0,0,0.55)";
+      fillRoundRect(ctx, boxX, boxY, boxW, boxH, 20);
+    }
+  } else if (caps.background === "blur") {
+    ctx.fillStyle = "rgba(0,0,0,0.45)";
     fillRoundRect(ctx, boxX, boxY, boxW, boxH, 20);
   } else if (caps.background === "gradient") {
     const g = ctx.createLinearGradient(0, boxY, 0, boxY + boxH);
@@ -148,6 +164,23 @@ function drawCaption(
     ctx.fillText(ln, canvasW / 2, y);
   });
   ctx.shadowBlur = 0;
+}
+
+async function ensureCaptionFontsLoaded(caps: WizardCaptions): Promise<void> {
+  if (typeof document === "undefined" || !document.fonts?.ready) return;
+  const preset = getPresetById(caps.presetId);
+  const weight = preset?.fontWeight ?? 600;
+  const size = caps.fontSize;
+  const faces =
+    preset?.fontFamily === "serif"
+      ? [`${weight} ${size}px Cormorant Garamond`]
+      : [`${weight} ${size}px Inter`];
+  try {
+    await Promise.all(faces.map((f) => document.fonts.load(f)));
+  } catch {
+    /* ignore */
+  }
+  await document.fonts.ready;
 }
 
 function loadVideo(url: string): Promise<HTMLVideoElement> {
@@ -182,6 +215,8 @@ export async function exportVideoToWebm(
     throw new Error("Add at least one clip before exporting.");
   }
 
+  await ensureCaptionFontsLoaded(captions);
+
   const W = 720;
   const H = 1280;
   const canvas = document.createElement("canvas");
@@ -194,12 +229,16 @@ export async function exportVideoToWebm(
   const total = Math.max(0.1, totalDurationSec);
   const seg = total / clips.length;
   const mime = pickVideoMime();
-  const videoTrack = canvas.captureStream(30).getVideoTracks()[0];
+  const capturer = canvas.captureStream(30);
+  const tracks = capturer.getVideoTracks();
+  if (!tracks.length) throw new Error("Canvas produced no video track.");
+  const videoTrack = tracks[0] as CanvasCaptureMediaStreamTrack;
+
   let audioDest: MediaStreamAudioDestinationNode | null = null;
   let audioCtx: AudioContext | null = null;
   let bufferSource: AudioBufferSourceNode | null = null;
 
-  const stream = new MediaStream([videoTrack]);
+  const stream = new MediaStream([videoTrack!]);
 
   if (voiceBlob || voiceUrl) {
     try {
@@ -219,15 +258,17 @@ export async function exportVideoToWebm(
   }
 
   const recorder = new MediaRecorder(stream, { mimeType: mime });
-  const chunks: Blob[] = [];
+  const recordedChunks: Blob[] = [];
   recorder.ondataavailable = (e) => {
-    if (e.data.size) chunks.push(e.data);
+    if (e.data.size) recordedChunks.push(e.data);
   };
 
   const done = new Promise<Blob>((resolve, reject) => {
     recorder.onerror = () => reject(new Error("Recording failed"));
     recorder.onstop = () => {
-      const blob = new Blob(chunks, { type: mime.split(";")[0] || "video/webm" });
+      const blob = new Blob(recordedChunks, {
+        type: mime.split(";")[0] || "video/webm",
+      });
       resolve(blob);
     };
   });
@@ -250,13 +291,18 @@ export async function exportVideoToWebm(
       const idx = Math.min(videos.length - 1, Math.floor(t / seg));
       const v = videos[idx];
       const localT = Math.max(0, t - idx * seg);
-      if (v.duration && Number.isFinite(v.duration)) {
+      if (v.duration && Number.isFinite(v.duration) && v.duration > 0.05) {
+        v.currentTime = localT % v.duration;
+      } else if (v.duration && Number.isFinite(v.duration)) {
         v.currentTime = Math.min(localT, Math.max(0.01, v.duration - 0.05));
       }
 
       drawCover(ctx, v, W, H);
-      const cap = getCaptionLineForTime(captions, t * 1000, sourceText);
+      const tMs = t * 1000;
+      const cap = getActiveCaptionState(captions, tMs, sourceText).text;
       drawCaption(ctx, cap, captions, H, W);
+
+      videoTrack.requestFrame?.();
 
       if (t >= total) {
         recorder.stop();
