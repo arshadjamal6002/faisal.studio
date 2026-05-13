@@ -20,7 +20,7 @@ export const Textarea = forwardRef<
       <textarea
         ref={ref}
         id={tid}
-        className={`min-h-[160px] w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-deen focus:ring-2 focus:ring-deen/20 ${className}`}
+        className={`min-h-[160px] w-full resize-y rounded-2xl border border-slate-200/90 bg-white/95 px-3.5 py-3 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm focus:border-deen focus:ring-2 focus:ring-deen/20 ${className}`}
         {...props}
       />
     </div>

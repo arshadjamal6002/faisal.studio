@@ -45,21 +45,21 @@ export function ReadingPrompter({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-slate-200 bg-slate-50/90 px-4 py-5">
-        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+      <div className="rounded-3xl border border-deen/15 bg-gradient-to-b from-white to-cream/55 px-5 py-6 shadow-[0_10px_28px_rgba(22,51,44,0.08)]">
+        <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
           Ab yeh line bolain
         </p>
-        <p className="text-lg font-medium leading-snug text-slate-900 sm:text-xl">
+        <p className="text-xl font-medium leading-snug text-slate-900 sm:text-2xl">
           {current}
         </p>
         {next ? (
-          <p className="mt-4 text-sm leading-relaxed text-slate-400">{next}</p>
+          <p className="mt-4 text-base leading-relaxed text-slate-400">{next}</p>
         ) : (
           <p className="mt-3 text-xs text-slate-400">Aakhri line</p>
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200/80 bg-white/85 px-3 py-2.5 shadow-sm">
         <span className="text-xs font-medium text-slate-600">Line advance:</span>
         <Button
           type="button"

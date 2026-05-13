@@ -39,7 +39,7 @@ export function ClipCard({
   }, [clip.url, onDuration]);
 
   return (
-    <div className="flex gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+    <div className="flex gap-3 rounded-2xl border border-slate-200/85 bg-white/95 p-3 shadow-sm">
       <div className="relative h-24 w-14 shrink-0 overflow-hidden rounded-lg bg-slate-900 sm:h-28 sm:w-16">
         <video
           ref={videoRef}

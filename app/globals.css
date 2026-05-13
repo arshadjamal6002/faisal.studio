@@ -3,13 +3,50 @@
 @tailwind utilities;
 
 :root {
-  --cream: #faf7f2;
-  --deen: #0f766e;
-  --gold: #c9a24a;
+  --cream: #f8f4eb;
+  --cream-soft: #fcfaf5;
+  --deen: #0f5d4f;
+  --gold: #b89249;
+  --ink: #1f2937;
 }
 
 body {
   @apply bg-cream text-slate-800 antialiased;
+}
+
+.app-bg {
+  background-color: var(--cream);
+  background-image:
+    radial-gradient(
+      520px circle at 8% 12%,
+      rgba(15, 93, 79, 0.08),
+      transparent 68%
+    ),
+    radial-gradient(
+      480px circle at 94% 88%,
+      rgba(184, 146, 73, 0.08),
+      transparent 70%
+    ),
+    linear-gradient(
+      45deg,
+      rgba(15, 93, 79, 0.035) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      -45deg,
+      rgba(15, 93, 79, 0.028) 1px,
+      transparent 1px
+    );
+  background-size:
+    auto,
+    auto,
+    44px 44px,
+    44px 44px;
+  background-position:
+    0 0,
+    0 0,
+    0 0,
+    22px 22px;
 }
 
 /* Focus rings for accessibility */

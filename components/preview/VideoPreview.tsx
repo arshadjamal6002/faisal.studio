@@ -152,7 +152,7 @@ export function VideoPreview({
       {voiceUrl ? (
         <audio ref={audioRef} src={voiceUrl} preload="auto" className="hidden" />
       ) : null}
-      <div className="relative aspect-[9/16] w-full overflow-hidden rounded-2xl bg-black shadow-lg ring-1 ring-slate-200">
+      <div className="relative aspect-[9/16] w-full overflow-hidden rounded-3xl bg-black shadow-[0_22px_42px_rgba(9,22,18,0.35)] ring-1 ring-slate-200/90">
         {activeClip ? (
           <video
             ref={videoRef}
@@ -177,11 +177,11 @@ export function VideoPreview({
           </div>
         </div>
       </div>
-      <div className="mt-3 flex items-center justify-between gap-3">
+      <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white/90 px-3 py-2.5 shadow-sm">
         <Button
           type="button"
           variant="primary"
-          className="gap-2"
+          className="gap-2 px-3.5 py-2"
           disabled={clips.length === 0}
           onClick={toggle}
         >

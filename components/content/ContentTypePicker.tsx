@@ -26,10 +26,10 @@ export function ContentTypePicker({ value, onChange }: Props) {
             key={type}
             type="button"
             onClick={() => onChange(type)}
-            className={`flex flex-col items-start rounded-2xl border p-4 text-left transition ${
+            className={`flex flex-col items-start rounded-2xl border p-4 text-left shadow-sm transition ${
               active
-                ? "border-deen bg-deen/5 ring-2 ring-deen/30"
-                : "border-slate-200 bg-white hover:border-deen/40 hover:bg-cream"
+                ? "border-deen/70 bg-deen/5 ring-2 ring-deen/20"
+                : "border-slate-200/85 bg-white/95 hover:border-deen/35 hover:bg-cream"
             }`}
           >
             <Icon

@@ -184,7 +184,7 @@ export function StepPreview() {
           </Card>
         </div>
 
-        <Card className="lg:sticky lg:top-24 h-fit">
+        <Card className="h-fit border-deen/15 lg:sticky lg:top-24">
           <CardTitle>Preview</CardTitle>
           <CardDescription>9:16 stage — how your reminder will feel.</CardDescription>
           <div className="mt-4">
@@ -198,7 +198,7 @@ export function StepPreview() {
             />
           </div>
           {hasVoiceAudio ? (
-            <div className="mt-3 space-y-2 text-center text-[11px] leading-relaxed text-slate-500">
+            <div className="mt-4 space-y-2 rounded-2xl border border-slate-200/80 bg-cream/40 px-3 py-3 text-center text-[11px] leading-relaxed text-slate-500">
               <p>
                 Caption timing follows your narration pace. Clips spread across the
                 same length so subtitles stay in sync with your voice.

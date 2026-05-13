@@ -20,7 +20,7 @@ export const Select = forwardRef<
       <select
         ref={ref}
         id={sid}
-        className={`w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 focus:border-deen focus:ring-2 focus:ring-deen/20 ${className}`}
+        className={`w-full rounded-2xl border border-slate-200/90 bg-white/95 px-3.5 py-2.5 text-sm text-slate-900 shadow-sm focus:border-deen focus:ring-2 focus:ring-deen/20 ${className}`}
         {...props}
       >
         {children}

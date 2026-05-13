@@ -18,7 +18,7 @@ export function AudioPreview({ url, fileName, durationSec, onReplace }: Props) {
       : "—";
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+    <div className="rounded-2xl border border-slate-200/85 bg-cream/55 p-4 shadow-sm">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-sm font-medium text-slate-900">

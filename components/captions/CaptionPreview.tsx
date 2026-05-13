@@ -43,7 +43,7 @@ export function CaptionPreview({ captions, sampleText }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-[220px]">
-      <div className="relative aspect-[9/16] w-full overflow-hidden rounded-2xl bg-gradient-to-b from-slate-800 to-slate-950 shadow-md ring-1 ring-slate-200">
+      <div className="relative aspect-[9/16] w-full overflow-hidden rounded-3xl bg-gradient-to-b from-slate-800 to-slate-950 shadow-[0_18px_34px_rgba(9,22,18,0.3)] ring-1 ring-slate-200/90">
         <div
           className={`absolute inset-0 flex flex-col px-3 ${captionContainerJustify(captions)}`}
         >

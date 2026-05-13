@@ -47,8 +47,8 @@ export function WizardShell() {
         : false;
 
   return (
-    <div className="min-h-screen bg-cream">
-      <header className="border-b border-slate-200/80 bg-white/80 backdrop-blur">
+    <div className="app-bg min-h-screen">
+      <header className="border-b border-slate-200/80 bg-white/75 backdrop-blur-md">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4">
           <Link href="/" className="text-lg font-semibold tracking-tight text-slate-900">
             Faisal<span className="text-deen"> Studio</span>
@@ -67,11 +67,11 @@ export function WizardShell() {
           <Stepper step={step} />
         </div>
 
-        <div className="mb-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-deen">
+        <div className="mb-2 rounded-3xl border border-slate-200/80 bg-white/70 p-5 shadow-sm backdrop-blur-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-deen">
             Step {step} of 5
           </p>
-          <h1 className="text-2xl font-semibold text-slate-900">
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
             {stepTitle(step)}
           </h1>
           <p className="mt-1 text-sm text-slate-600">

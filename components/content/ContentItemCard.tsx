@@ -34,10 +34,10 @@ export function ContentItemCard({ item, selected, onSelect }: Props) {
     <button
       type="button"
       onClick={onSelect}
-      className={`w-full rounded-2xl border p-4 text-left transition ${
+      className={`w-full rounded-2xl border p-4 text-left shadow-sm transition ${
         selected
-          ? "border-deen bg-deen/5 ring-2 ring-deen/25"
-          : "border-slate-200 bg-white hover:border-deen/30"
+          ? "border-deen/70 bg-deen/5 ring-2 ring-deen/20"
+          : "border-slate-200/85 bg-white/95 hover:border-deen/30"
       }`}
     >
       <div className="flex items-start justify-between gap-2">

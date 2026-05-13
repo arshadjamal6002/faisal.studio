@@ -54,7 +54,7 @@ export function VoiceStagePreview({ clips, captions, overlayLine }: Props) {
         waqt is frame ko apna anchor samjhein.
       </CardDescription>
       <div className="mx-auto mt-4 w-full max-w-[240px]">
-        <div className="relative aspect-[9/16] w-full overflow-hidden rounded-2xl bg-black shadow-md ring-1 ring-slate-200">
+        <div className="relative aspect-[9/16] w-full overflow-hidden rounded-3xl bg-black shadow-[0_20px_38px_rgba(9,22,18,0.32)] ring-1 ring-slate-200/90">
           <video
             ref={videoRef}
             className="h-full w-full object-cover"

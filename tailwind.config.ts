@@ -9,13 +9,14 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        cream: "#FAF7F2",
+        cream: "#F8F4EB",
         deen: {
-          DEFAULT: "#0F766E",
-          dark: "#0D5C56",
+          DEFAULT: "#0F5D4F",
+          dark: "#0B4A3F",
+          soft: "#3B8B79",
         },
         gold: {
-          muted: "#C9A24A",
+          muted: "#B89249",
         },
       },
       fontFamily: {
